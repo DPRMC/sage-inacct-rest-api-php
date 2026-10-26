@@ -25,7 +25,9 @@
     "require-dev": {
         "illuminate/database": "^9.0 || ^10.0 || ^11.0",
         "illuminate/support": "^9.0 || ^10.0 || ^11.0",
-        "phpunit/phpunit": "^10.5 || ^11.0"
+        "phpunit/phpunit": "^10.5 || ^11.0",
+        "symfony/clock": "^6.3 || ^7.0",
+        "symfony/translation": "^6.0 || ^7.0"
     },
     "scripts": {
         "test": "phpunit --configuration phpunit.xml.dist",
