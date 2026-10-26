@@ -1,0 +1,36 @@
+{
+    "name": "dprmc/sage-inacct-rest-api-php",
+    "description": "Framework-agnostic PHP client and optional Laravel persistence layer for the Sage Intacct REST API.",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.1",
+        "guzzlehttp/guzzle": "^7.8",
+        "psr/log": "^3.0"
+    },
+    "suggest": {
+        "illuminate/database": "Required for the optional Eloquent models, repositories, writers, and migrations.",
+        "illuminate/support": "Required when registering the optional Laravel service provider."
+    },
+    "autoload": {
+        "psr-4": {
+            "Dprmc\\SageIntacctRestApi\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "require-dev": {
+        "illuminate/database": "^9.0 || ^10.0 || ^11.0",
+        "illuminate/support": "^9.0 || ^10.0 || ^11.0",
+        "phpunit/phpunit": "^10.5 || ^11.0"
+    },
+    "scripts": {
+        "test": "phpunit --configuration phpunit.xml.dist",
+        "syntax": "find src tests -name '*.php' -print0 | xargs -0 -n1 php -l"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

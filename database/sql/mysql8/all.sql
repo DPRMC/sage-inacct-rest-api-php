@@ -1,0 +1,3 @@
+SOURCE 001_create_sage_intacct_oauth_tokens.sql;
+SOURCE 002_create_sage_intacct_report_runs.sql;
+SOURCE 003_create_sage_intacct_report_records.sql;
