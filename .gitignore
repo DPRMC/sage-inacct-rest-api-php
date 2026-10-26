@@ -4,3 +4,4 @@
 .env
 .env.integration
 .DS_Store
+.idea/

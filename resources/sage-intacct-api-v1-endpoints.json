@@ -1,0 +1,61 @@
+{
+    "api": "sage-intacct-rest",
+    "version": "v1",
+    "baseline": "2026-r3",
+    "base_url": "https://api.intacct.com/ia/api/v1",
+    "coverage_model": "generic-object-client-plus-documented-service-paths",
+    "common_services": {
+        "query": {
+            "method": "POST",
+            "path": "/services/core/query",
+            "access": "read"
+        },
+        "export": {
+            "method": "POST",
+            "path": "/services/core/export",
+            "access": "read"
+        },
+        "webhook_event_count": {
+            "method": "GET",
+            "path": "/services/delivery/event/count",
+            "access": "read"
+        },
+        "webhook_event_list": {
+            "method": "GET",
+            "path": "/services/delivery/event/list",
+            "access": "read"
+        },
+        "webhook_event_ack": {
+            "method": "POST",
+            "path": "/services/delivery/event/ack",
+            "access": "write"
+        }
+    },
+    "object_operations": {
+        "get": "GET /objects/{application}/{object}/{id}",
+        "list": "GET /objects/{application}/{object}",
+        "query": "POST /services/core/query",
+        "create": "POST /objects/{application}/{object}",
+        "update": "PATCH /objects/{application}/{object}/{id}",
+        "delete": "DELETE /objects/{application}/{object}/{id}",
+        "workflow": "POST /objects/{application}/{object}/{id}/{operation}"
+    },
+    "domains": {
+        "accounts-payable": {},
+        "accounts-receivable": {},
+        "cash-management": {},
+        "company-config": {},
+        "contracts-revenue-management": {},
+        "construction": {},
+        "employee-expenses": {},
+        "fixed-assets": {},
+        "general-ledger": {},
+        "inventory-control": {},
+        "order-entry": {},
+        "projects": {},
+        "purchasing": {},
+        "tax": {},
+        "reports": {},
+        "common-resources": {}
+    }
+}

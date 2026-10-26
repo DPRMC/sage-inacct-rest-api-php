@@ -88,6 +88,28 @@ final class OAuthTokenProvider
         return $this->requestToken($tokenRequest);
     }
 
+    public function authorizationUrl(string $state): string
+    {
+        if ($this->config->redirectUri === null || $this->config->redirectUri === '') {
+            throw new SageIntacctAuthenticationException(
+                'A redirect URI is required to build the Sage authorization URL.',
+            );
+        }
+
+        $parameters = [
+            'response_type' => 'code',
+            'client_id' => $this->config->clientId,
+            'redirect_uri' => $this->config->redirectUri,
+            'state' => $state,
+        ];
+
+        if ($this->config->scope !== null) {
+            $parameters['scope'] = $this->config->scope;
+        }
+
+        return $this->config->authorizationEndpoint . '?' . http_build_query($parameters, '', '&', PHP_QUERY_RFC3986);
+    }
+
     public function forget(): void
     {
         $this->tokenStore->forget();

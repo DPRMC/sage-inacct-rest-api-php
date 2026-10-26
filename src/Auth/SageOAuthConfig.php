@@ -14,6 +14,7 @@ final class SageOAuthConfig
         public readonly string $grantType = 'client_credentials',
         public readonly ?string $scope = null,
         public readonly ?string $redirectUri = null,
+        public readonly string $authorizationEndpoint = 'https://api.intacct.com/ia/api/v1/oauth2/authorize',
     ) {
         if ($this->clientId === '' || $this->clientSecret === '') {
             throw new \InvalidArgumentException('Sage OAuth client credentials are required.');

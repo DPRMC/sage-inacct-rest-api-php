@@ -30,6 +30,8 @@ final class SageIntacctClient
         ?LoggerInterface $logger = null,
         private readonly int $maxRetries = 3,
         private readonly array $retryDelaysInSeconds = [1, 2, 4],
+        private readonly ?string $entityId = null,
+        private readonly bool $allowWrites = false,
     ) {
         $this->httpClient = $httpClient ?? new Client();
         $this->logger = $logger ?? new NullLogger();
@@ -38,17 +40,61 @@ final class SageIntacctClient
     /**
      * @param array<string, mixed> $query
      */
-    public function get(string $path, array $query = []): SageApiResponse
+    public function get(string $path, array $query = [], array $headers = []): SageApiResponse
     {
-        return $this->request('GET', $path, $query, null);
+        return $this->send('GET', $path, $query, null, $headers);
     }
 
     /**
      * @param array<string, mixed> $payload
      */
-    public function post(string $path, array $payload = []): SageApiResponse
+    public function post(string $path, array $payload = [], array $headers = []): SageApiResponse
     {
-        return $this->request('POST', $path, [], $payload);
+        return $this->send('POST', $path, [], $payload, $headers);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<string, string> $headers
+     */
+    public function put(string $path, array $payload = [], array $headers = []): SageApiResponse
+    {
+        return $this->send('PUT', $path, [], $payload, $headers);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<string, string> $headers
+     */
+    public function patch(string $path, array $payload = [], array $headers = []): SageApiResponse
+    {
+        return $this->send('PATCH', $path, [], $payload, $headers);
+    }
+
+    /**
+     * @param array<string, mixed> $query
+     * @param array<string, string> $headers
+     */
+    public function delete(string $path, array $query = [], array $headers = []): SageApiResponse
+    {
+        return $this->send('DELETE', $path, $query, null, $headers);
+    }
+
+    /**
+     * Send a request to any documented Sage REST endpoint.
+     *
+     * @param array<string, mixed> $query
+     * @param array<string, mixed>|null $payload
+     * @param array<string, string> $headers
+     */
+    public function request(
+        string $method,
+        string $path,
+        array $query = [],
+        ?array $payload = null,
+        array $headers = [],
+    ): SageApiResponse {
+        return $this->send(strtoupper($method), $path, $query, $payload, $headers);
     }
 
     /**
@@ -99,11 +145,59 @@ final class SageIntacctClient
         ]);
     }
 
+    public function object(string $object, ?bool $allowWrites = null): \Dprmc\SageIntacctRestApi\Resources\SageObjectClient
+    {
+        return new \Dprmc\SageIntacctRestApi\Resources\SageObjectClient(
+            $this,
+            $object,
+            $allowWrites ?? $this->allowWrites,
+        );
+    }
+
+    public function resources(): \Dprmc\SageIntacctRestApi\Resources\SageIntacctResources
+    {
+        return new \Dprmc\SageIntacctRestApi\Resources\SageIntacctResources($this);
+    }
+
+    public function domain(string $domain, ?bool $allowWrites = null): \Dprmc\SageIntacctRestApi\Resources\SageDomainClient
+    {
+        return new \Dprmc\SageIntacctRestApi\Resources\SageDomainClient(
+            $this,
+            $domain,
+            $allowWrites ?? $this->allowWrites,
+        );
+    }
+
+    public function deliveryQueue(): \Dprmc\SageIntacctRestApi\Services\SageDeliveryQueueClient
+    {
+        return new \Dprmc\SageIntacctRestApi\Services\SageDeliveryQueueClient($this);
+    }
+
+    public function withEntity(string $entityId): self
+    {
+        return new self(
+            tokenProvider: $this->tokenProvider,
+            baseUrl: $this->baseUrl,
+            httpClient: $this->httpClient,
+            logger: $this->logger,
+            maxRetries: $this->maxRetries,
+            retryDelaysInSeconds: $this->retryDelaysInSeconds,
+            entityId: $entityId,
+            allowWrites: $this->allowWrites,
+        );
+    }
+
     /**
      * @param array<string, mixed>|null $payload
      * @param array<string, mixed> $query
      */
-    private function request(string $method, string $path, array $query, ?array $payload): SageApiResponse
+    private function send(
+        string $method,
+        string $path,
+        array $query,
+        ?array $payload,
+        array $headers = [],
+    ): SageApiResponse
     {
         $url = $this->buildUrl($path);
         $attempt = 0;
@@ -114,7 +208,11 @@ final class SageIntacctClient
             $forceRefresh = false;
 
             try {
-                $response = $this->httpClient->request($method, $url, $this->requestOptions($accessToken, $query, $payload));
+                $response = $this->httpClient->request(
+                    $method,
+                    $url,
+                    $this->requestOptions($accessToken, $query, $payload, $headers),
+                );
             } catch (GuzzleException $exception) {
                 if ($attempt < $this->maxRetries) {
                     $this->waitBeforeRetry($attempt);
@@ -167,15 +265,24 @@ final class SageIntacctClient
      * @param array<string, mixed>|null $payload
      * @return array<string, mixed>
      */
-    private function requestOptions(string $accessToken, array $query, ?array $payload): array
+    private function requestOptions(
+        string $accessToken,
+        array $query,
+        ?array $payload,
+        array $headers,
+    ): array
     {
         $options = [
-            'headers' => [
+            'headers' => array_merge([
                 'Accept' => 'application/json',
                 'Authorization' => 'Bearer ' . $accessToken,
-            ],
+            ], $headers),
             'http_errors' => false,
         ];
+
+        if ($this->entityId !== null) {
+            $options['headers']['X-IA-API-Param-Entity'] = $this->entityId;
+        }
 
         if ($query !== []) {
             $options['query'] = $query;
