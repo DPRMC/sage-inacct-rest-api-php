@@ -2,4 +2,5 @@
 /.phpunit.cache/
 /.phpunit.result.cache
 .env
+.env.integration
 .DS_Store
