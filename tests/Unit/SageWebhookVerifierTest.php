@@ -44,6 +44,28 @@ final class SageWebhookVerifierTest extends TestCase
         (new SageWebhookVerifier())->verify('{"event":"tampered"}', $header . '.' . $payload . '.' . $signature, $secret);
     }
 
+    public function test_it_accepts_sages_base64_signature_envelope(): void
+    {
+        $secret = 'client-secret';
+        $body = '{"event":"updated"}';
+        $jwtHeader = $this->encode(['alg' => 'HS256', 'typ' => 'JWT']);
+        $jwtPayload = $this->encode([
+            'iss' => 'Sage Intacct',
+            'exp' => time() + 300,
+            'payload_signature' => hash('sha256', $body),
+        ]);
+        $jwtSignature = $this->encodeBinary(hash_hmac('sha256', $jwtHeader . '.' . $jwtPayload, $secret, true));
+        $jwt = $jwtHeader . '.' . $jwtPayload . '.' . $jwtSignature;
+        $signatureEnvelope = base64_encode(json_encode([
+            'clientId' => 'client-123',
+            'jwtData' => $jwt,
+        ], JSON_THROW_ON_ERROR));
+
+        $claims = (new SageWebhookVerifier())->verify($body, $signatureEnvelope, $secret);
+
+        self::assertSame('Sage Intacct', $claims['iss']);
+    }
+
     /**
      * @param array<string, mixed> $payload
      */

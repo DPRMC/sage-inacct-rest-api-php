@@ -1,0 +1,22 @@
+{
+    "release": "2026-r3",
+    "source_sha256": "fdf43979a6571040d2efc3851fad95130a19e792a614ffd0ae1fbdd4b9547409",
+    "source_path_count": 1220,
+    "source_operation_count": 2217,
+    "generated_operation_count": 2217,
+    "generated_schema_count": 1239,
+    "contract_tested_operation_count": 2217,
+    "sandbox_verified_operation_count": 0,
+    "unmapped_operation_count": 0,
+    "method_counts": {
+        "DELETE": 336,
+        "GET": 1108,
+        "PATCH": 338,
+        "POST": 435
+    },
+    "production_release_ready": false,
+    "blocking_reasons": [
+        "Sandbox verification has not been completed.",
+        "Endpoint-family negative and permission tests remain to be recorded."
+    ]
+}

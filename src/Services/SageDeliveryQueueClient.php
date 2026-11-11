@@ -6,6 +6,7 @@ namespace Dprmc\SageIntacctRestApi\Services;
 
 use Dprmc\SageIntacctRestApi\Http\SageIntacctClient;
 use Dprmc\SageIntacctRestApi\Response\SageApiResponse;
+use Dprmc\SageIntacctRestApi\Response\SageFileResponse;
 
 final class SageDeliveryQueueClient
 {
@@ -16,7 +17,7 @@ final class SageDeliveryQueueClient
     /**
      * @param array<string, mixed> $query
      */
-    public function count(array $query = []): SageApiResponse
+    public function count(array $query = []): SageApiResponse|SageFileResponse
     {
         return $this->client->get('/services/delivery/event/count', $query);
     }
@@ -24,7 +25,7 @@ final class SageDeliveryQueueClient
     /**
      * @param array<string, mixed> $query
      */
-    public function list(array $query = []): SageApiResponse
+    public function list(array $query = []): SageApiResponse|SageFileResponse
     {
         return $this->client->get('/services/delivery/event/list', $query);
     }
@@ -32,7 +33,7 @@ final class SageDeliveryQueueClient
     /**
      * @param array<string, mixed> $payload
      */
-    public function acknowledge(array $payload): SageApiResponse
+    public function acknowledge(array $payload): SageApiResponse|SageFileResponse
     {
         return $this->client->post('/services/delivery/event/ack', $payload);
     }

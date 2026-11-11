@@ -6,7 +6,10 @@ namespace Dprmc\SageIntacctRestApi\Http;
 
 use Dprmc\SageIntacctRestApi\Auth\OAuthTokenProvider;
 use Dprmc\SageIntacctRestApi\Exception\SageIntacctRequestException;
+use Dprmc\SageIntacctRestApi\Generated\V2026R3\SageIntacctApiClient;
 use Dprmc\SageIntacctRestApi\Response\SageApiResponse;
+use Dprmc\SageIntacctRestApi\Response\SageAsyncResponse;
+use Dprmc\SageIntacctRestApi\Response\SageFileResponse;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
@@ -30,6 +33,7 @@ final class SageIntacctClient
         ?LoggerInterface $logger = null,
         private readonly int $maxRetries = 3,
         private readonly array $retryDelaysInSeconds = [1, 2, 4],
+        private readonly float $maxRetryDelayInSeconds = 60.0,
         private readonly ?string $entityId = null,
         private readonly bool $allowWrites = false,
     ) {
@@ -40,7 +44,7 @@ final class SageIntacctClient
     /**
      * @param array<string, mixed> $query
      */
-    public function get(string $path, array $query = [], array $headers = []): SageApiResponse
+    public function get(string $path, array $query = [], array $headers = []): SageApiResponse|SageFileResponse
     {
         return $this->send('GET', $path, $query, null, $headers);
     }
@@ -48,7 +52,7 @@ final class SageIntacctClient
     /**
      * @param array<string, mixed> $payload
      */
-    public function post(string $path, array $payload = [], array $headers = []): SageApiResponse
+    public function post(string $path, array $payload = [], array $headers = []): SageApiResponse|SageFileResponse
     {
         return $this->send('POST', $path, [], $payload, $headers);
     }
@@ -57,7 +61,7 @@ final class SageIntacctClient
      * @param array<string, mixed> $payload
      * @param array<string, string> $headers
      */
-    public function put(string $path, array $payload = [], array $headers = []): SageApiResponse
+    public function put(string $path, array $payload = [], array $headers = []): SageApiResponse|SageFileResponse
     {
         return $this->send('PUT', $path, [], $payload, $headers);
     }
@@ -66,7 +70,7 @@ final class SageIntacctClient
      * @param array<string, mixed> $payload
      * @param array<string, string> $headers
      */
-    public function patch(string $path, array $payload = [], array $headers = []): SageApiResponse
+    public function patch(string $path, array $payload = [], array $headers = []): SageApiResponse|SageFileResponse
     {
         return $this->send('PATCH', $path, [], $payload, $headers);
     }
@@ -75,7 +79,7 @@ final class SageIntacctClient
      * @param array<string, mixed> $query
      * @param array<string, string> $headers
      */
-    public function delete(string $path, array $query = [], array $headers = []): SageApiResponse
+    public function delete(string $path, array $query = [], array $headers = []): SageApiResponse|SageFileResponse
     {
         return $this->send('DELETE', $path, $query, null, $headers);
     }
@@ -93,7 +97,7 @@ final class SageIntacctClient
         array $query = [],
         ?array $payload = null,
         array $headers = [],
-    ): SageApiResponse {
+    ): SageApiResponse|SageFileResponse {
         return $this->send(strtoupper($method), $path, $query, $payload, $headers);
     }
 
@@ -129,7 +133,16 @@ final class SageIntacctClient
             $payload['filterParameters'] = $filterParameters;
         }
 
-        return $this->post('/services/core/query', $payload);
+        $response = $this->post('/services/core/query', $payload);
+
+        if ($response instanceof SageFileResponse) {
+            throw new SageIntacctRequestException(
+                'Sage returned a file response for a query request.',
+                $response->statusCode,
+            );
+        }
+
+        return $response;
     }
 
     /**
@@ -137,7 +150,7 @@ final class SageIntacctClient
      *
      * @param array<string, mixed> $query
      */
-    public function export(string $fileType, array $query): SageApiResponse
+    public function export(string $fileType, array $query): SageApiResponse|SageFileResponse
     {
         return $this->post('/services/core/export', [
             'fileType' => $fileType,
@@ -173,6 +186,11 @@ final class SageIntacctClient
         return new \Dprmc\SageIntacctRestApi\Services\SageDeliveryQueueClient($this);
     }
 
+    public function generated(): SageIntacctApiClient
+    {
+        return new SageIntacctApiClient($this);
+    }
+
     public function withEntity(string $entityId): self
     {
         return new self(
@@ -182,6 +200,7 @@ final class SageIntacctClient
             logger: $this->logger,
             maxRetries: $this->maxRetries,
             retryDelaysInSeconds: $this->retryDelaysInSeconds,
+            maxRetryDelayInSeconds: $this->maxRetryDelayInSeconds,
             entityId: $entityId,
             allowWrites: $this->allowWrites,
         );
@@ -197,7 +216,7 @@ final class SageIntacctClient
         array $query,
         ?array $payload,
         array $headers = [],
-    ): SageApiResponse
+    ): SageApiResponse|SageFileResponse
     {
         $url = $this->buildUrl($path);
         $attempt = 0;
@@ -214,7 +233,7 @@ final class SageIntacctClient
                     $this->requestOptions($accessToken, $query, $payload, $headers),
                 );
             } catch (GuzzleException $exception) {
-                if ($attempt < $this->maxRetries) {
+                if ($this->canRetry($method, $path, $headers) && $attempt < $this->maxRetries) {
                     $this->waitBeforeRetry($attempt);
                     $attempt++;
                     continue;
@@ -234,13 +253,20 @@ final class SageIntacctClient
                 continue;
             }
 
-            if ($this->isRetryable($response) && $attempt < $this->maxRetries) {
+            if (
+                $this->isRetryable($response)
+                && $this->canRetry($method, $path, $headers)
+                && $attempt < $this->maxRetries
+            ) {
                 $this->waitBeforeRetry($attempt, $response);
                 $attempt++;
                 continue;
             }
 
-            $decodedPayload = $this->decodeResponse($response);
+            $isJsonResponse = $this->isJsonResponse($response);
+            $decodedPayload = $isJsonResponse
+                ? $this->decodeResponse($response)
+                : [];
 
             if ($response->getStatusCode() < 200 || $response->getStatusCode() >= 300) {
                 $this->logger->warning('Sage REST request was rejected.', [
@@ -253,6 +279,27 @@ final class SageIntacctClient
                     'Sage rejected the REST request.',
                     $response->getStatusCode(),
                     $decodedPayload,
+                    errorCode: $this->errorCode($decodedPayload),
+                    requestId: $this->requestId($response),
+                    retryAfterSeconds: $this->retryAfterSeconds($response),
+                );
+            }
+
+            if (!$isJsonResponse) {
+                return new SageFileResponse(
+                    body: (string)$response->getBody(),
+                    statusCode: $response->getStatusCode(),
+                    headers: $response->getHeaders(),
+                );
+            }
+
+            if ($response->getStatusCode() === 202) {
+                return new SageAsyncResponse(
+                    payload: $decodedPayload,
+                    statusCode: $response->getStatusCode(),
+                    location: $response->getHeaderLine('Location') !== ''
+                        ? $response->getHeaderLine('Location')
+                        : null,
                 );
             }
 
@@ -306,6 +353,57 @@ final class SageIntacctClient
         return in_array($response->getStatusCode(), [408, 429, 500, 502, 503, 504], true);
     }
 
+    /**
+     * Mutations are retried only when the caller provides an idempotency key.
+     * Sage's query and export services use POST for read operations.
+     *
+     * @param array<string, string> $headers
+     */
+    private function canRetry(string $method, string $path, array $headers): bool
+    {
+        $normalizedMethod = strtoupper($method);
+        $normalizedPath = '/' . ltrim($path, '/');
+
+        if (in_array($normalizedMethod, ['GET', 'HEAD', 'OPTIONS'], true)) {
+            return true;
+        }
+
+        if (
+            $normalizedMethod === 'POST'
+            && in_array($normalizedPath, ['/services/core/query', '/services/core/export'], true)
+        ) {
+            return true;
+        }
+
+        return $this->hasNonEmptyHeader($headers, 'Idempotency-Key');
+    }
+
+    /**
+     * @param array<string, string> $headers
+     */
+    private function hasNonEmptyHeader(array $headers, string $name): bool
+    {
+        foreach ($headers as $headerName => $headerValue) {
+            if (strcasecmp($headerName, $name) === 0 && trim($headerValue) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isJsonResponse(ResponseInterface $response): bool
+    {
+        $contentType = strtolower($response->getHeaderLine('Content-Type'));
+
+        if ($contentType === '') {
+            return true;
+        }
+
+        return str_contains($contentType, 'application/json')
+            || str_contains($contentType, '+json');
+    }
+
     private function waitBeforeRetry(int $attempt, ?ResponseInterface $response = null): void
     {
         $retryAfter = $response?->getHeaderLine('Retry-After');
@@ -313,9 +411,19 @@ final class SageIntacctClient
         $defaultDelay = $lastDelayIndex >= 0
             ? $this->retryDelaysInSeconds[$lastDelayIndex]
             : 1;
-        $delay = is_numeric($retryAfter)
+        $hasRetryAfter = is_numeric($retryAfter);
+        $delay = $hasRetryAfter
             ? (float)$retryAfter
             : (float)($this->retryDelaysInSeconds[$attempt] ?? $defaultDelay);
+        $delay = max(0.0, min($delay, $this->maxRetryDelayInSeconds));
+
+        if (!$hasRetryAfter && $delay > 0.0) {
+            $jitter = min($delay * 0.25, 1.0);
+            $delay = min(
+                $this->maxRetryDelayInSeconds,
+                $delay + (random_int(0, 1_000_000) / 1_000_000) * $jitter,
+            );
+        }
 
         $this->logger->info('Retrying Sage REST request.', [
             'attempt' => $attempt + 1,
@@ -323,6 +431,60 @@ final class SageIntacctClient
         ]);
 
         usleep((int)($delay * 1_000_000));
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function errorCode(array $payload): ?string
+    {
+        $candidates = [
+            $payload['ia::error']['code'] ?? null,
+            $payload['error']['code'] ?? null,
+            $payload['code'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_string($candidate) && $candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function requestId(ResponseInterface $response): ?string
+    {
+        foreach (['X-Request-ID', 'X-Request-Id', 'Request-Id'] as $headerName) {
+            $requestId = trim($response->getHeaderLine($headerName));
+
+            if ($requestId !== '') {
+                return $requestId;
+            }
+        }
+
+        return null;
+    }
+
+    private function retryAfterSeconds(ResponseInterface $response): ?float
+    {
+        $retryAfter = trim($response->getHeaderLine('Retry-After'));
+
+        if ($retryAfter === '') {
+            return null;
+        }
+
+        if (is_numeric($retryAfter)) {
+            return max(0.0, min((float)$retryAfter, $this->maxRetryDelayInSeconds));
+        }
+
+        $retryAt = strtotime($retryAfter);
+
+        if ($retryAt === false) {
+            return null;
+        }
+
+        return max(0.0, min((float)($retryAt - time()), $this->maxRetryDelayInSeconds));
     }
 
     /**

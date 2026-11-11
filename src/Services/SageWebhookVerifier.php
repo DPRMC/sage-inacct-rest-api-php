@@ -96,7 +96,7 @@ final class SageWebhookVerifier
         }
 
         $payload = $this->decodeJson($decoded, 'signature envelope');
-        $token = $payload['jwt'] ?? $payload['token'] ?? null;
+        $token = $payload['jwt'] ?? $payload['jwtData'] ?? $payload['token'] ?? null;
 
         if (!is_string($token) || $token === '') {
             throw new SageWebhookVerificationException('The Sage webhook signature envelope has no JWT.');

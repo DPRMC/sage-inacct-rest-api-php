@@ -6,7 +6,7 @@ The core client does not require Laravel. Laravel users may additionally use the
 
 ## Status
 
-The package currently provides the foundation for:
+The package currently provides the generated `2026 R3` SDK surface and hardened runtime foundation for:
 
 - OAuth 2.0 token acquisition and refresh.
 - Authenticated JSON REST requests.
@@ -16,7 +16,11 @@ The package currently provides the foundation for:
 - Entity-scoped requests through `X-IA-API-Param-Entity`.
 - Delivery queue access and webhook signature/payload verification.
 - A versioned endpoint catalog covering the documented API domains and common services.
+- Generated `2026 R3` operation methods for all 2,217 documented endpoint operations.
+- Generated forward-compatible model classes for all 1,239 documented schemas.
 - Optional Laravel persistence for OAuth tokens and report imports.
+
+This remains pre-1.0 until the dedicated Sage sandbox has verified every endpoint family. See `docs/generated-support-matrix.md`; its sandbox-verified count is intentionally zero until those credentials and test-company procedures are supplied.
 
 The Sage API exposes versioned REST endpoints under `https://api.intacct.com/ia/api/v1`. Confirm the required Sage subscription, application authorization, user permissions, entities, and report access before using the client against production.
 
@@ -72,6 +76,26 @@ $response = $client->request(
 );
 ```
 
+The generated 2026 R3 client exposes every operation by its Sage `operationId` while retaining the low-level client and Guzzle transport:
+
+```php
+$api = $client->generated();
+$vendor = $api->getAccountsPayableVendorKey(
+    pathParameters: ['key' => 'V-1'],
+    query: ['fields' => 'id,name,status'],
+);
+```
+
+Generated models preserve fields that were not known when the SDK was built:
+
+```php
+use Dprmc\SageIntacctRestApi\Generated\V2026R3\Models\SageObjectsAccountsPayableVendor;
+
+$vendor = SageObjectsAccountsPayableVendor::fromArray($response->result());
+$vendorId = $vendor->get('id');
+$rawVendor = $vendor->raw();
+```
+
 Object writes are disabled by default. Enable them explicitly for a client or object:
 
 ```php
@@ -79,7 +103,9 @@ $vendorClient = $client->object('accounts-payable/vendor', allowWrites: true);
 $vendorClient->create(['name' => 'Example Vendor']);
 ```
 
-The endpoint catalog is stored in `resources/sage-intacct-api-v1-endpoints.json`. It records the API baseline, common service paths, object operation conventions, and Sage business domains. Sage’s object catalog is intentionally accessed by object name at runtime so newly released objects do not require a generated PHP class before they can be used.
+Retries are enabled for safe reads and Sage's read-only query/export POST services. Mutation retries require an explicit `Idempotency-Key` header. Non-JSON successful responses are returned as `SageFileResponse` instances with headers, body access, and `saveTo()` support.
+
+The pinned source snapshot, generated operation catalog, schema metadata, generated clients, models, and support matrix are under `resources/snapshots/2026-r3`, `resources/generated/2026-r3`, and `src/Generated/V2026R3`. Run `composer generate:sage` to regenerate them and inspect `docs/generated-support-matrix.md` for the current completeness gate.
 
 ### Webhook verification
 
@@ -93,7 +119,7 @@ $claims = (new SageWebhookVerifier())->verify(
 );
 ```
 
-The verifier validates the HS256 JWT, issuer, expiration, and SHA-256 hash of the exact request body. Applications should also persist the `Idempotency-Key` before processing an event.
+The verifier validates the HS256 JWT, issuer, expiration, and SHA-256 hash of the exact request body. Applications should atomically claim the `Idempotency-Key` with a `SageWebhookIdempotencyStore` before processing an event and retain keys for at least 24 hours. Sage documents the signature as a base64-encoded `X-IA-Sage-Signature` envelope and requires duplicate-delivery handling.
 
 ## Laravel integration
 

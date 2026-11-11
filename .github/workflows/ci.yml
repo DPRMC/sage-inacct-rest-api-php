@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        php: ['8.2', '8.3', '8.4']
+        php: ['8.1', '8.2', '8.3', '8.4']
 
     steps:
       - name: Check out repository
@@ -23,13 +23,24 @@ jobs:
           coverage: none
 
       - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist
+        run: |
+          if [ "${{ matrix.php }}" = "8.1" ]; then
+            composer update --no-interaction --prefer-dist --with-all-dependencies
+          else
+            composer install --no-interaction --prefer-dist
+          fi
 
       - name: Validate Composer configuration
         run: composer validate --strict --no-check-publish
 
       - name: Run syntax checks
         run: composer syntax
+
+      - name: Regenerate generated SDK
+        run: composer generate:sage
+
+      - name: Verify generated SDK is committed
+        run: git diff --exit-code -- resources/generated src/Generated
 
       - name: Run tests
         run: composer test

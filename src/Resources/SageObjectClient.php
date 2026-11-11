@@ -6,6 +6,7 @@ namespace Dprmc\SageIntacctRestApi\Resources;
 
 use Dprmc\SageIntacctRestApi\Http\SageIntacctClient;
 use Dprmc\SageIntacctRestApi\Response\SageApiResponse;
+use Dprmc\SageIntacctRestApi\Response\SageFileResponse;
 use Dprmc\SageIntacctRestApi\Response\SagePaginator;
 use Dprmc\SageIntacctRestApi\Exception\SageIntacctException;
 use Generator;
@@ -25,7 +26,7 @@ final class SageObjectClient
     /**
      * @param array<string, mixed> $query
      */
-    public function get(string $id, array $query = []): SageApiResponse
+    public function get(string $id, array $query = []): SageApiResponse|SageFileResponse
     {
         return $this->client->get($this->objectPath($id), $query);
     }
@@ -33,7 +34,7 @@ final class SageObjectClient
     /**
      * @param array<string, mixed> $query
      */
-    public function list(array $query = []): SageApiResponse
+    public function list(array $query = []): SageApiResponse|SageFileResponse
     {
         return $this->client->get($this->objectPath(), $query);
     }
@@ -97,7 +98,7 @@ final class SageObjectClient
     /**
      * @param array<string, mixed> $payload
      */
-    public function create(array $payload): SageApiResponse
+    public function create(array $payload): SageApiResponse|SageFileResponse
     {
         $this->assertWritesAllowed();
 
@@ -107,14 +108,14 @@ final class SageObjectClient
     /**
      * @param array<string, mixed> $payload
      */
-    public function update(string $id, array $payload): SageApiResponse
+    public function update(string $id, array $payload): SageApiResponse|SageFileResponse
     {
         $this->assertWritesAllowed();
 
         return $this->client->patch($this->objectPath($id), $payload);
     }
 
-    public function delete(string $id): SageApiResponse
+    public function delete(string $id): SageApiResponse|SageFileResponse
     {
         $this->assertWritesAllowed();
 
@@ -124,7 +125,7 @@ final class SageObjectClient
     /**
      * @param array<string, mixed> $payload
      */
-    public function workflow(string $id, string $operation, array $payload = []): SageApiResponse
+    public function workflow(string $id, string $operation, array $payload = []): SageApiResponse|SageFileResponse
     {
         $this->assertWritesAllowed();
 

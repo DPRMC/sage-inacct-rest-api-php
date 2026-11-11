@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Dprmc\SageIntacctRestApi\Response;
 
-final class SageApiResponse
+class SageApiResponse
 {
     /**
      * @param array<string, mixed> $payload

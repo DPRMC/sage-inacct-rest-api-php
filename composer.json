@@ -32,7 +32,9 @@
     "scripts": {
         "test": "phpunit --configuration phpunit.xml.dist",
         "test:integration": "if [ -f phpunit.integration.xml ]; then phpunit --configuration phpunit.integration.xml; else phpunit --configuration phpunit.integration.xml.dist; fi",
-        "syntax": "find src tests -name '*.php' -print0 | xargs -0 -n1 php -l"
+        "syntax": "find src tests tools -name '*.php' -print0 | xargs -0 -n1 php -l",
+        "snapshot:sage": "php tools/snapshot_sage_api.php",
+        "generate:sage": "php tools/generate_endpoint_catalog.php && php tools/generate_sage_client.php && php tools/generate_sage_models.php && php tools/generate_completeness_report.php"
     },
     "minimum-stability": "stable",
     "prefer-stable": true
